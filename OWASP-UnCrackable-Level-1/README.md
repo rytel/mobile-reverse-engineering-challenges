@@ -1,66 +1,139 @@
-# OWASP UnCrackable iOS Level 1 – Write-up / Walkthrough
+# OWASP UnCrackable iOS Level 1 – Write-up
 
-A reverse engineering walkthrough for the UnCrackable Level 1 iOS challenge from the OWASP Mobile Application Security (MAS) project. This report details the methodology used to bypass anti-debugging mechanisms and extract the hidden secret directly via Objective-C Runtime manipulation using Frida.
-
-## Challenge Summary
-* Objective: Find the hidden secret (flag) encrypted or obscured within the application.
-* Platform: iOS (Jailbroken device / Environment).
-* Tools Used: Frida, macOS Terminal, Hopper Disassembler (for initial structural mapping).
-* Result: Success. The flag was dumped via console logs and forced onto the UI.
-* Discovered Secret: i am groot!
+A detailed reverse engineering walkthrough for the UnCrackable Level 1 iOS challenge from the OWASP Mobile Application Security (MAS) project. This report details the methodology used to bypass anti-debugging mechanisms.
 
 ---
 
-## Step-by-Step Analysis & Exploitation
+## 📊 Challenge Summary
 
-### 1. Static Reconnaissance
-The analysis began by inspecting the compiled application binary (UnCrackable Level 1) using the command-line strings utility to check for plain-text hardcoded flags.
+| Parameter | Value |
+|-----------|-------|
+| **Objective** | Find the hidden secret (flag) encrypted within the application |
+| **Platform** | iOS (jailbroken device / test environment) |
+| **Tools Used** | Frida, macOS Terminal, Hopper Disassembler |
+| **Status** | ✅ Success |
+| **Discovered Secret** | `i am groot!` |
 
+---
+
+## 🔍 Step-by-Step Analysis
+
+### Step 1: Static Reconnaissance
+
+**Goal:** Check the binary for hardcoded flags in plaintext
+
+```bash
 strings "UnCrackable Level 1.app/UnCrackable Level 1" | grep -iE "secret|flag|key" -C 3
+```
 
-Observation:
-While the search revealed standard UI strings (Congratulations! You found the secret!!, Verification Failed.), the actual flag was nowhere to be found in the static binary. This confirmed that the secret is either decrypted dynamically at runtime or computed on the fly.
+**Observations:**
+- ✓ Found UI strings: `Congratulations! You found the secret!!`, `Verification Failed.`
+- ✗ Actual flag not present in the static binary
+- ⚠️ Conclusion: Flag is dynamically generated/retrieved at runtime
 
----
-
-### 2. Identifying Anti-Debugging Protections
-Attempting to spawn the application dynamically using Frida's default behavior (frida -f sg.vp.UnCrackable1...) resulted in an immediate crash:
-
-Spawned sg.vp.UnCrackable1... Resuming main thread!
-Process terminated
-
-Root Cause: The application implements an aggressive, early-stage Anti-Debugging / Anti-Jailbreak mechanism (likely embedded within the native C main function or early constructors). It executes within milliseconds of process initialization—well before Frida's instrumentation engine can fully initialize the Objective-C runtime environment. 
-
-However, launching the app manually by tapping its icon on the iPhone succeeded without triggering a crash. This indicated the defensive check specifically monitors for debugger attachment during the early spawn cycle.
+**Implication:** Dynamic analysis required
 
 ---
 
-### 3. Bypassing Defenses via Late Injection (Attach Mode)
-To circumvent the early anti-debugging routine, a Late Injection (Attach) strategy was deployed:
-1. The application was launched manually on the iOS device (allowing the early boot checks to pass safely).
-2. Frida was then instructed to hook into the already running, active process using the -n flag:
+### Step 2: Identifying Anti-Debugging Protection
 
+**Problem:** Attempting to spawn the application with standard Frida
+
+```bash
+frida -f sg.vp.UnCrackable1...
+```
+
+**Result:**
+```
+Spawned sg.vp.UnCrackable1...
+Resuming main thread!
+Process terminated ❌
+```
+
+**Root Cause:**
+- Application implements aggressive anti-debugging / anti-jailbreak mechanism
+- Executes at early stage (native C main function or constructors)
+- Detects debugger attachment during initialization
+
+**Key Finding:**
+✓ Manual app launch (tapping icon) **does NOT** crash
+→ Protection is specifically triggered when spawned by debugger
+
+---
+
+### Step 3: Bypassing Defenses via Late Injection (Attach Mode)
+
+**Strategy:** Circumvent startup protection by attaching instead of spawning
+
+**Procedure:**
+1. Manually launch the application on iOS device (allow startup checks to pass)
+2. Attach Frida to the already-running process
+
+```bash
 frida -U -n "UnCrackable Level 1" -l exploit.js
+```
 
-This bypassed the startup defense bottleneck entirely.
-
----
-
-### 4. Runtime UI Inspection & Heap Manipulation
-Initial structural mapping of the binary indicated that the target ViewController held a reference to an element called theLabel. Instead of risking entanglement with potential native C obfuscated comparison functions (like strcmp or memcmp which run outside the Obj-C runtime), the exploitation turned toward UI Automation & Memory Inspection.
-
-The finalized Frida script allocates a delay to ensure full view instantiation, switches context safely to the iOS mainQueue (required for UI thread interactions), scans the heap for the active ViewController instance, and directly reads its text property while forcing it visible on screen.
+**Results:**
+- ✅ Startup checks pass without issues
+- ✅ Frida attaches to running process
+- ✅ Injected JavaScript executes successfully
 
 ---
 
-## Final Verification
+### Step 4: Runtime UI Inspection & Heap Manipulation
 
-Upon running the script via Attach mode, the Frida REPL immediately dumped the target properties from memory, revealing that the developer stored the raw flag inside the hidden label asset:
+**Approach:**
+1. Binary structural mapping → identify `ViewController` and `theLabel`
+2. Instead of risking entanglement with native code, scan the heap
+3. Bypass obfuscated Objective-C code
 
-Attaching...                                                            
+**Final Frida Script Strategy:**
+```javascript
+// Pseudo-code
+1. Delay          → wait for full view instantiation
+2. Context Switch → safely switch to iOS mainQueue
+3. Heap Scan      → find active ViewController
+4. Memory Read    → extract text from label.text
+```
+
+---
+
+## ✅ Final Verification
+
+**Running the script in Attach Mode:**
+
+```
+Attaching...
 [*] Objective-C Runtime active. Initializing UI exploration...
 [iPhone::UnCrackable Level 1 ]-> [+] Target label found on heap!
 [+] UI visual properties updated successfully.
 [🎯] SUCCESS! label.text = i am groot!
+```
 
-Flag Captured: i am groot!
+### 🏁 Flag Captured
+
+```
+Discovered Secret: i am groot! ✓
+```
+
+---
+
+## 🎯 Key Takeaways
+
+| Challenge | Solution |
+|-----------|----------|
+| Anti-debugging at startup | Attach Mode instead of Spawn |
+| Hidden secret in runtime | Heap scanning + UI inspection |
+| Native code obfuscation | Bypass via runtime manipulation |
+
+---
+
+## 📚 Further Resources
+
+- [Frida Documentation](https://frida.re/)
+- [OWASP Mobile Security](https://owasp.org/www-project-mobile-top-10/)
+- [Hopper Disassembler](https://www.hopperapp.com/)
+
+---
+
+*⚖️ Disclaimer: Developed strictly for educational and security research purposes.*
