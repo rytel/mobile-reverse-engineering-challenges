@@ -49,41 +49,7 @@ This bypassed the startup defense bottleneck entirely.
 ### 4. Runtime UI Inspection & Heap Manipulation
 Initial structural mapping of the binary indicated that the target ViewController held a reference to an element called theLabel. Instead of risking entanglement with potential native C obfuscated comparison functions (like strcmp or memcmp which run outside the Obj-C runtime), the exploitation turned toward UI Automation & Memory Inspection.
 
-The finalized Frida script allocates a delay to ensure full view instantiation, switches context safely to the iOS mainQueue (required for UI thread interactions), scans the heap for the active ViewController instance, and directly reads its text property while forcing it visible on screen:
-
-if (ObjC.available) {
-    console.log("[*] Objective-C Runtime active. Initializing UI exploration...");
-    try {
-        setTimeout(function() {
-            ObjC.schedule(ObjC.mainQueue, function() {
-                ObjC.choose(ObjC.classes.ViewController, {
-                    onMatch: function(vc) {
-                        var label = vc.theLabel();
-                        if (label) {
-                            console.log("[+] Target label found on heap!");
-                            label.setHidden_(0);
-                            var uiColor = ObjC.classes.UIColor;
-                            label.setTextColor_(uiColor.redColor());
-                            label.setBackgroundColor_(uiColor.yellowColor());
-                            console.log("[+] UI visual properties updated successfully.");
-                            console.log("[🎯] SUCCESS! label.text = " + label.text());
-                        }
-                        var view = vc.view();
-                        if (view) {
-                            view.setNeedsLayout();
-                            view.layoutIfNeeded();
-                        }
-                    },
-                    onComplete: function() {}
-                });
-            });
-        }, 1000);
-    } catch (e) {
-        console.log("[-] Error during memory manipulation: " + e);
-    }
-} else {
-    console.log("[-] Objective-C environment unavailable.");
-}
+The finalized Frida script allocates a delay to ensure full view instantiation, switches context safely to the iOS mainQueue (required for UI thread interactions), scans the heap for the active ViewController instance, and directly reads its text property while forcing it visible on screen.
 
 ---
 
@@ -91,9 +57,9 @@ if (ObjC.available) {
 
 Upon running the script via Attach mode, the Frida REPL immediately dumped the target properties from memory, revealing that the developer stored the raw flag inside the hidden label asset:
 
-[iPhone::UnCrackable Level 1 ]-> 
+Attaching...                                                            
 [*] Objective-C Runtime active. Initializing UI exploration...
-[+] Target label found on heap!
+[iPhone::UnCrackable Level 1 ]-> [+] Target label found on heap!
 [+] UI visual properties updated successfully.
 [🎯] SUCCESS! label.text = i am groot!
 
