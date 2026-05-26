@@ -17,7 +17,7 @@ A collection of write-ups and functional scripts focusing on iOS runtime manipul
 * **Obstacle:** Active Anti-Debugging/Anti-Jailbreak mechanism causing crashes on boot.
 * **Solution:** Bypassed startup checks using Frida's **Attach Mode (Late Injection)**. Scanned the heap for the active `ViewController` and extracted the secret string directly from the UI layer in memory.
 * **Result:** Captured flag: `i am groot!`
-* **Write-up & Code:** [Link to folder](./OWASP-UnCrackable-iOS-Level-1/)
+* **Write-up & Code:** [Link to folder](./OWASP-UnCrackable-Level-1/)
 
 ---
 
