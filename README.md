@@ -44,10 +44,9 @@ A collection of write-ups and functional scripts focusing on iOS runtime manipul
 4. Remediation   → Documenting production-grade security fixes
 ```
 
-**Key Practices:**
-- OLLVM - code obfuscation
-- App Attest - application attestation
-- Runtime obfuscation - runtime hardening
+**Core Technical Competencies Demonstrated:**
+- **Runtime Memory Inspection:** Accessing and modifying properties on the Objective-C heap in real-time.
+- **Defensive Engineering Analysis:** Proposing industry-standard mitigations (Control Flow Flattening via OLLVM, Apple App Attest, and mid-lifecycle RASP) to counter the exact exploitation vectors used.
 
 ---
 
